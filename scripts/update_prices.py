@@ -10,13 +10,25 @@ Excel recalculates every downstream formula (DCF upside/downside, relative
 valuation, peer comps table) automatically the next time the file is opened,
 so this script does not need to run any recalculation itself.
 """
+import csv
 import datetime
+import os
 import sys
 
 import openpyxl
 import yfinance as yf
 
 FILE_PATH = "Niranjan_Desai_Anup_Engineering_Model.xlsx"
+HISTORY_PATH = "docs/data/price_history.csv"
+HISTORY_COLUMNS = ["ANUP", "ISGEC", "PRAJIND", "GMMPFAUDLR", "THERMAX", "PATELSAI"]
+TICKER_TO_COLUMN = {
+    "ANUP.NS": "ANUP",
+    "ISGEC.NS": "ISGEC",
+    "PRAJIND.NS": "PRAJIND",
+    "GMMPFAUDLR.NS": "GMMPFAUDLR",
+    "THERMAX.NS": "THERMAX",
+    "PATELSAI.BO": "PATELSAI",
+}
 
 # ticker -> list of (sheet name, cell) to write the price into
 TICKER_CELLS = {
@@ -55,6 +67,35 @@ def fetch_price(ticker: str) -> float:
     return round(float(hist["Close"].dropna().iloc[-1]), 2)
 
 
+def update_history(updated: dict) -> None:
+    """Append (or overwrite, if run twice in a day) today's row in the CMP
+    history log that the dashboard charts read from. Missing tickers for
+    today carry forward the last known value so a single failed fetch
+    doesn't put a gap in the chart."""
+    rows = {}
+    if os.path.exists(HISTORY_PATH):
+        with open(HISTORY_PATH, newline="") as f:
+            for row in csv.DictReader(f):
+                rows[row["date"]] = row
+
+    today_str = datetime.date.today().isoformat()
+    last_row = rows[max(rows)] if rows else {}
+    new_row = {"date": today_str}
+    for ticker, column in TICKER_TO_COLUMN.items():
+        if ticker in updated:
+            new_row[column] = updated[ticker]
+        else:
+            new_row[column] = last_row.get(column, "")
+    rows[today_str] = new_row
+
+    os.makedirs(os.path.dirname(HISTORY_PATH), exist_ok=True)
+    with open(HISTORY_PATH, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["date"] + HISTORY_COLUMNS)
+        writer.writeheader()
+        for date in sorted(rows):
+            writer.writerow(rows[date])
+
+
 def main() -> int:
     wb = openpyxl.load_workbook(FILE_PATH)
     today_str = datetime.date.today().strftime("%-d %B, %Y")
@@ -82,6 +123,9 @@ def main() -> int:
             wb[sheet][cell] = template.format(date=today_str)
 
     wb.save(FILE_PATH)
+
+    if updated:
+        update_history(updated)
 
     if failures:
         print(f"\n{len(failures)} of {len(TICKER_CELLS)} tickers failed:", file=sys.stderr)

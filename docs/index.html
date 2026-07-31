@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anup Engineering — Daily Tracker</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --good:           #006300;
+    --bad:            #d03b3b;
+    --emphasis:       #2a78d6;
+    --context-gray:   #a3a29b;
+    --series-1:       #2a78d6;
+    --series-2:       #eb6834;
+    --series-3:       #1baf7a;
+    --series-4:       #eda100;
+    --series-5:       #e87ba4;
+    --series-6:       #008300;
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --good:           #0ca30c;
+      --bad:            #e66767;
+      --emphasis:       #3987e5;
+      --context-gray:   #5c5b56;
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --series-3:       #199e70;
+      --series-4:       #c98500;
+      --series-5:       #d55181;
+      --series-6:       #008300;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header h1 { font-size: 22px; margin: 0 0 4px; }
+  header p { color: var(--text-secondary); margin: 0 0 28px; font-size: 14px; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 2px; }
+  .card .sub { color: var(--text-secondary); font-size: 13px; margin: 0 0 16px; }
+
+  .stat-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: baseline; }
+  .stat-value { font-size: 40px; font-weight: 600; line-height: 1; }
+  .stat-delta { font-size: 15px; font-weight: 600; margin-left: 10px; }
+  .stat-delta.up { color: var(--good); }
+  .stat-delta.down { color: var(--bad); }
+  .stat-asof { color: var(--text-muted); font-size: 13px; margin-top: 6px; }
+
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-swatch { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+  .legend-swatch.dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+  .toggle-btn {
+    font: inherit; font-size: 12px; color: var(--text-secondary);
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; cursor: pointer;
+  }
+  .toggle-btn:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis-label { fill: var(--text-muted); font-size: 11px; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+  .data-label { fill: var(--text-primary); font-size: 12px; font-weight: 600; }
+
+  .crosshair { stroke: var(--baseline); stroke-width: 1; pointer-events: none; }
+  .hover-hit { fill: transparent; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 10;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    min-width: 160px; visibility: hidden;
+  }
+  .tooltip .t-date { color: var(--text-muted); margin-bottom: 6px; }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; }
+  .tooltip .t-name { color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+  .tooltip .t-key { width: 10px; height: 2px; display: inline-block; border-radius: 1px; }
+  .tooltip .t-val { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.data-table th, table.data-table td {
+    text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--gridline);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  table.data-table th:first-child, table.data-table td:first-child { text-align: left; }
+  table.data-table th { color: var(--text-secondary); font-weight: 600; }
+  table.data-table td { color: var(--text-primary); }
+
+  footer { color: var(--text-muted); font-size: 12px; margin-top: 24px; line-height: 1.6; }
+  footer a { color: var(--text-secondary); }
+</style>
+</head>
+<body>
+<div class="viz-root">
+  <div class="page">
+    <header>
+      <h1>Anup Engineering — Daily Tracker</h1>
+      <p id="subhead">Loading…</p>
+    </header>
+
+    <section class="card" id="stat-card"></section>
+
+    <section class="card">
+      <h2>CMP trend</h2>
+      <p class="sub">Anup Engineering against its five peers, since tracking began</p>
+      <div class="toolbar"><button class="toggle-btn" data-toggle="line">Table view</button></div>
+      <div class="legend" id="line-legend"></div>
+      <div id="line-chart-wrap" style="position:relative;">
+        <div id="line-chart"></div>
+        <div class="tooltip" id="line-tooltip"></div>
+      </div>
+      <div id="line-table" style="display:none;"></div>
+    </section>
+
+    <section class="card">
+      <h2>Today's peer comparison</h2>
+      <p class="sub" id="bar-sub"></p>
+      <div class="toolbar"><button class="toggle-btn" data-toggle="bar">Table view</button></div>
+      <div id="bar-chart-wrap" style="position:relative;">
+        <div id="bar-chart"></div>
+        <div class="tooltip" id="bar-tooltip"></div>
+      </div>
+      <div id="bar-table" style="display:none;"></div>
+    </section>
+
+    <footer>
+      Prices are closing market data pulled from Yahoo Finance and refreshed automatically
+      on weekday afternoons. This page shows raw closing prices only — no DCF, target
+      price, or valuation figures are published here.
+      <br>
+      <a href="https://github.com/Nnd1106/anup-engineering-model">Source repository</a>
+      (the full model with DCF, WACC, and sensitivity analysis lives in the private repo).
+    </footer>
+  </div>
+</div>
+
+<script>
+const COLUMNS = ["ANUP", "ISGEC", "PRAJIND", "GMMPFAUDLR", "THERMAX", "PATELSAI"];
+const NAMES = {
+  ANUP: "Anup Engineering",
+  ISGEC: "ISGEC Heavy Engineering",
+  PRAJIND: "Praj Industries",
+  GMMPFAUDLR: "GMM Pfaudler",
+  THERMAX: "Thermax",
+  PATELSAI: "Patels Airtemp India",
+};
+const BAR_COLORS = {
+  ANUP: "var(--series-1)", ISGEC: "var(--series-2)", PRAJIND: "var(--series-3)",
+  GMMPFAUDLR: "var(--series-4)", THERMAX: "var(--series-5)", PATELSAI: "var(--series-6)",
+};
+
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+function fmtINR(v) {
+  return "₹" + Number(v).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+function fmtDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split("\n");
+  const headers = lines[0].split(",");
+  return lines.slice(1).map(line => {
+    const cells = line.split(",");
+    const row = {};
+    headers.forEach((h, i) => { row[h.trim()] = cells[i] === undefined ? "" : cells[i].trim(); });
+    return row;
+  });
+}
+
+function renderStatCard(rows) {
+  const card = document.getElementById("stat-card");
+  const last = rows[rows.length - 1];
+  const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+  const value = parseFloat(last.ANUP);
+
+  const wrap = document.createElement("div");
+  wrap.className = "stat-row";
+
+  const box = document.createElement("div");
+  const valueLine = document.createElement("div");
+  const valueSpan = document.createElement("span");
+  valueSpan.className = "stat-value";
+  valueSpan.textContent = fmtINR(value);
+  valueLine.appendChild(valueSpan);
+
+  if (prev && prev.ANUP) {
+    const prevVal = parseFloat(prev.ANUP);
+    const delta = value - prevVal;
+    const pct = (delta / prevVal) * 100;
+    const deltaSpan = document.createElement("span");
+    deltaSpan.className = "stat-delta " + (delta >= 0 ? "up" : "down");
+    deltaSpan.textContent = (delta >= 0 ? "↑ " : "↓ ") + fmtINR(Math.abs(delta)) + " (" + Math.abs(pct).toFixed(2) + "%) vs prior close";
+    valueLine.appendChild(deltaSpan);
+  }
+  box.appendChild(valueLine);
+
+  const asof = document.createElement("div");
+  asof.className = "stat-asof";
+  asof.textContent = "Anup Engineering CMP · as of " + fmtDate(last.date);
+  box.appendChild(asof);
+
+  wrap.appendChild(box);
+  card.appendChild(wrap);
+}
+
+function renderLegend(container, items) {
+  container.innerHTML = "";
+  items.forEach(item => {
+    const li = document.createElement("div");
+    li.className = "legend-item";
+    const sw = document.createElement("span");
+    sw.className = "legend-swatch";
+    sw.style.background = item.color;
+    li.appendChild(sw);
+    const label = document.createElement("span");
+    label.textContent = item.label;
+    li.appendChild(label);
+    container.appendChild(li);
+  });
+}
+
+function renderLineChart(rows) {
+  const W = 800, H = 340, padL = 56, padR = 16, padT = 16, padB = 32;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const allVals = [];
+  rows.forEach(r => COLUMNS.forEach(c => { if (r[c]) allVals.push(parseFloat(r[c])); }));
+  const minV = Math.min(...allVals), maxV = Math.max(...allVals);
+  const pad = (maxV - minV) * 0.1 || maxV * 0.05 || 10;
+  const yMin = Math.max(0, minV - pad), yMax = maxV + pad;
+
+  const n = rows.length;
+  const x = i => n === 1 ? padL + plotW / 2 : padL + (plotW * i) / (n - 1);
+  const y = v => padT + plotH - ((v - yMin) / (yMax - yMin)) * plotH;
+
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "CMP trend line chart" });
+
+  const ticks = 4;
+  for (let t = 0; t <= ticks; t++) {
+    const v = yMin + ((yMax - yMin) * t) / ticks;
+    const gy = y(v);
+    svg.appendChild(el("line", { class: "gridline", x1: padL, x2: W - padR, y1: gy, y2: gy }));
+    const lbl = el("text", { class: "axis-label", x: padL - 8, y: gy + 4, "text-anchor": "end" });
+    lbl.textContent = Math.round(v).toLocaleString("en-IN");
+    svg.appendChild(lbl);
+  }
+  svg.appendChild(el("line", { class: "baseline", x1: padL, x2: W - padR, y1: padT + plotH, y2: padT + plotH }));
+
+  const dateStep = Math.max(1, Math.ceil(n / 6));
+  rows.forEach((r, i) => {
+    if (i % dateStep !== 0 && i !== n - 1) return;
+    const lbl = el("text", { class: "axis-label", x: x(i), y: H - 8, "text-anchor": "middle" });
+    lbl.textContent = fmtDate(r.date).replace(/, \d{4}/, "");
+    svg.appendChild(lbl);
+  });
+
+  function pathFor(col) {
+    let d = "";
+    rows.forEach((r, i) => {
+      if (r[col] === "" || r[col] === undefined) return;
+      const cmd = d === "" ? "M" : "L";
+      d += `${cmd}${x(i)},${y(parseFloat(r[col]))} `;
+    });
+    return d.trim();
+  }
+
+  ["ISGEC", "PRAJIND", "GMMPFAUDLR", "THERMAX", "PATELSAI"].forEach(col => {
+    const d = pathFor(col);
+    if (d.includes("L") || n === 1) {
+      svg.appendChild(el("path", { d, fill: "none", stroke: "var(--context-gray)", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    }
+  });
+  const anupPath = pathFor("ANUP");
+  svg.appendChild(el("path", { d: anupPath, fill: "none", stroke: "var(--emphasis)", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+
+  rows.forEach((r, i) => {
+    if (r.ANUP === "") return;
+    svg.appendChild(el("circle", { cx: x(i), cy: y(parseFloat(r.ANUP)), r: 4, fill: "var(--emphasis)", stroke: "var(--surface-1)", "stroke-width": 2 }));
+  });
+  if (n >= 1) {
+    const lastI = n - 1;
+    const lbl = el("text", { class: "data-label", x: x(lastI) - 6, y: y(parseFloat(rows[lastI].ANUP)) - 12, "text-anchor": "end" });
+    lbl.textContent = "Anup Engineering";
+    svg.appendChild(lbl);
+  }
+
+  const hit = el("rect", { class: "hover-hit", x: padL, y: padT, width: plotW, height: plotH });
+  const crosshair = el("line", { class: "crosshair", x1: padL, x2: padL, y1: padT, y2: padT + plotH, style: "display:none" });
+  svg.appendChild(crosshair);
+  svg.appendChild(hit);
+
+  const wrap = document.getElementById("line-chart-wrap");
+  const tooltip = document.getElementById("line-tooltip");
+
+  function nearestIndex(px) {
+    let best = 0, bestD = Infinity;
+    rows.forEach((r, i) => { const d = Math.abs(x(i) - px); if (d < bestD) { bestD = d; best = i; } });
+    return best;
+  }
+
+  hit.addEventListener("pointermove", (ev) => {
+    const rect = svg.getBoundingClientRect();
+    const px = ((ev.clientX - rect.left) / rect.width) * W;
+    const i = nearestIndex(px);
+    const r = rows[i];
+    crosshair.setAttribute("x1", x(i));
+    crosshair.setAttribute("x2", x(i));
+    crosshair.style.display = "block";
+
+    tooltip.innerHTML = "";
+    const dateEl = document.createElement("div");
+    dateEl.className = "t-date";
+    dateEl.textContent = fmtDate(r.date);
+    tooltip.appendChild(dateEl);
+    COLUMNS.forEach(col => {
+      if (r[col] === "" || r[col] === undefined) return;
+      const row = document.createElement("div");
+      row.className = "t-row";
+      const nameWrap = document.createElement("span");
+      nameWrap.className = "t-name";
+      const key = document.createElement("span");
+      key.className = "t-key";
+      key.style.background = col === "ANUP" ? "var(--emphasis)" : "var(--context-gray)";
+      nameWrap.appendChild(key);
+      const nameText = document.createElement("span");
+      nameText.textContent = NAMES[col];
+      nameWrap.appendChild(nameText);
+      row.appendChild(nameWrap);
+      const val = document.createElement("span");
+      val.className = "t-val";
+      val.textContent = fmtINR(parseFloat(r[col]));
+      row.appendChild(val);
+      tooltip.appendChild(row);
+    });
+
+    tooltip.style.visibility = "visible";
+    const wrapRect = wrap.getBoundingClientRect();
+    let left = (ev.clientX - wrapRect.left) + 14;
+    if (left + 180 > wrapRect.width) left = (ev.clientX - wrapRect.left) - 194;
+    tooltip.style.left = left + "px";
+    tooltip.style.top = (ev.clientY - wrapRect.top) - 10 + "px";
+  });
+  hit.addEventListener("pointerleave", () => {
+    tooltip.style.visibility = "hidden";
+    crosshair.style.display = "none";
+  });
+
+  document.getElementById("line-chart").innerHTML = "";
+  document.getElementById("line-chart").appendChild(svg);
+
+  renderLegend(document.getElementById("line-legend"), [
+    { color: "var(--emphasis)", label: "Anup Engineering" },
+    { color: "var(--context-gray)", label: "Peers (ISGEC, Praj Ind., GMM Pfaudler, Thermax, Patels Airtemp)" },
+  ]);
+}
+
+function renderBarChart(rows) {
+  const last = rows[rows.length - 1];
+  document.getElementById("bar-sub").textContent = "Closing price as of " + fmtDate(last.date);
+
+  const W = 800, H = 320, padL = 56, padR = 16, padT = 24, padB = 74;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = COLUMNS.length;
+  const bandW = plotW / n;
+  const barW = Math.min(24, bandW * 0.5);
+
+  const vals = COLUMNS.map(c => parseFloat(last[c]) || 0);
+  const maxV = Math.max(...vals);
+  const yMax = maxV * 1.15;
+  const y = v => padT + plotH - (v / yMax) * plotH;
+
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Today's peer comparison bar chart" });
+  svg.appendChild(el("line", { class: "baseline", x1: padL, x2: W - padR, y1: padT + plotH, y2: padT + plotH }));
+
+  const ticks = 4;
+  for (let t = 0; t <= ticks; t++) {
+    const v = (yMax * t) / ticks;
+    const gy = y(v);
+    svg.appendChild(el("line", { class: "gridline", x1: padL, x2: W - padR, y1: gy, y2: gy }));
+    const lbl = el("text", { class: "axis-label", x: padL - 8, y: gy + 4, "text-anchor": "end" });
+    lbl.textContent = Math.round(v).toLocaleString("en-IN");
+    svg.appendChild(lbl);
+  }
+
+  const wrap = document.getElementById("bar-chart-wrap");
+  const tooltip = document.getElementById("bar-tooltip");
+
+  COLUMNS.forEach((col, i) => {
+    const v = vals[i];
+    const cx = padL + bandW * i + bandW / 2;
+    const barTop = y(v);
+    const barH = padT + plotH - barTop;
+    const g = el("g", {});
+
+    const bar = el("rect", {
+      x: cx - barW / 2, y: barTop, width: barW, height: Math.max(barH, 2),
+      rx: 4, ry: 4, fill: BAR_COLORS[col],
+    });
+    g.appendChild(bar);
+
+    const hitArea = el("rect", { x: cx - bandW / 2, y: padT, width: bandW, height: plotH, fill: "transparent" });
+    g.appendChild(hitArea);
+
+    const valLbl = el("text", { class: "data-label", x: cx, y: barTop - 8, "text-anchor": "middle" });
+    valLbl.textContent = fmtINR(v);
+    g.appendChild(valLbl);
+
+    const nameLbl = el("text", { class: "axis-label", x: cx, y: padT + plotH + 18, "text-anchor": "middle" });
+    const words = NAMES[col].split(" ");
+    let line1 = "", line2 = "";
+    words.forEach(w => { if ((line1 + " " + w).trim().length <= 14) line1 = (line1 + " " + w).trim(); else line2 = (line2 + " " + w).trim(); });
+    nameLbl.textContent = line1;
+    g.appendChild(nameLbl);
+    if (line2) {
+      const nameLbl2 = el("text", { class: "axis-label", x: cx, y: padT + plotH + 32, "text-anchor": "middle" });
+      nameLbl2.textContent = line2;
+      g.appendChild(nameLbl2);
+    }
+
+    hitArea.addEventListener("pointerenter", () => { bar.style.opacity = "0.8"; showBarTooltip(); });
+    hitArea.addEventListener("pointermove", showBarTooltip);
+    hitArea.addEventListener("pointerleave", () => { bar.style.opacity = "1"; tooltip.style.visibility = "hidden"; });
+
+    function showBarTooltip(ev) {
+      tooltip.innerHTML = "";
+      const nameEl = document.createElement("div");
+      nameEl.className = "t-date";
+      nameEl.textContent = NAMES[col];
+      tooltip.appendChild(nameEl);
+      const row = document.createElement("div");
+      row.className = "t-row";
+      const valEl = document.createElement("span");
+      valEl.className = "t-val";
+      valEl.textContent = fmtINR(v);
+      row.appendChild(valEl);
+      tooltip.appendChild(row);
+      tooltip.style.visibility = "visible";
+      const wrapRect = wrap.getBoundingClientRect();
+      const barRect = bar.getBoundingClientRect();
+      let left = (barRect.left - wrapRect.left) + barRect.width / 2 - 70;
+      tooltip.style.left = Math.max(0, left) + "px";
+      tooltip.style.top = (barRect.top - wrapRect.top) - 54 + "px";
+    }
+
+    svg.appendChild(g);
+  });
+
+  document.getElementById("bar-chart").innerHTML = "";
+  document.getElementById("bar-chart").appendChild(svg);
+}
+
+function renderTable(containerId, rows) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+  const table = document.createElement("table");
+  table.className = "data-table";
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  ["Date", ...COLUMNS.map(c => NAMES[c])].forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  [...rows].reverse().forEach(r => {
+    const tr = document.createElement("tr");
+    const dateTd = document.createElement("td");
+    dateTd.textContent = fmtDate(r.date);
+    tr.appendChild(dateTd);
+    COLUMNS.forEach(c => {
+      const td = document.createElement("td");
+      td.textContent = r[c] ? fmtINR(parseFloat(r[c])) : "—";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+document.querySelectorAll(".toggle-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.toggle;
+    const chartWrap = document.getElementById(key + "-chart-wrap");
+    const legend = document.getElementById(key + "-legend");
+    const table = document.getElementById(key + "-table");
+    const showingTable = table.style.display !== "none";
+    table.style.display = showingTable ? "none" : "block";
+    chartWrap.style.display = showingTable ? "block" : "none";
+    if (legend) legend.style.display = showingTable ? "flex" : "none";
+    btn.textContent = showingTable ? "Table view" : "Chart view";
+  });
+});
+
+fetch("./data/price_history.csv")
+  .then(r => {
+    if (!r.ok) throw new Error("history file not found yet");
+    return r.text();
+  })
+  .then(text => {
+    const rows = parseCSV(text).filter(r => r.date);
+    if (!rows.length) throw new Error("no rows");
+    document.getElementById("subhead").textContent =
+      "Automated daily close-price tracker · " + rows.length + " day" + (rows.length === 1 ? "" : "s") + " tracked";
+    renderStatCard(rows);
+    renderLineChart(rows);
+    renderBarChart(rows);
+    renderTable("line-table", rows);
+    renderTable("bar-table", [rows[rows.length - 1]]);
+  })
+  .catch(err => {
+    document.getElementById("subhead").textContent = "No data yet — the first automated run hasn't landed here.";
+    console.error(err);
+  });
+</script>
+</body>
+</html>

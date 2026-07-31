@@ -30,6 +30,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Niranjan_Desai_Anup_Engineering_Model.xlsx
+          git add Niranjan_Desai_Anup_Engineering_Model.xlsx docs/data/price_history.csv
           git commit -m "Daily CMP update $(date -u +'%Y-%m-%d')" || echo "No changes to commit"
           git push
