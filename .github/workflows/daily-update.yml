@@ -1,0 +1,34 @@
+name: Daily Anup Engineering Model Update
+
+on:
+  schedule:
+    # 10:30 UTC = 4:00 PM IST, Mon-Fri -- after NSE/BSE close (3:30 PM IST)
+    - cron: "30 10 * * 1-5"
+  workflow_dispatch: {}   # lets you trigger it manually from the Actions tab too
+
+permissions:
+  contents: write   # lets this workflow push the updated file back to the repo
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch latest CMPs and update the model
+        run: python scripts/update_prices.py
+
+      - name: Commit the updated model back to this repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Niranjan_Desai_Anup_Engineering_Model.xlsx
+          git commit -m "Daily CMP update $(date -u +'%Y-%m-%d')" || echo "No changes to commit"
+          git push
