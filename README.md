@@ -1,3 +1,15 @@
+# Anup Engineering Model — DCF & Relative Valuation
+
+A DCF and relative valuation model for Anup Engineering (NSE: ANUP), built
+independently to practice equity research and automate the parts of the
+workflow that don't need to be manual. The model itself — cash flow
+projections, WACC, peer comps, and a sensitivity table — is a standard Excel
+build; what's automated is keeping the inputs current: a daily GitHub Actions
+pipeline pulls the latest closing price for Anup Engineering and its peers
+and writes them straight into the model.
+
+---
+
 # Anup Engineering Model — Daily CMP Automation
 
 Every weekday afternoon (after NSE/BSE close), this pulls the latest closing
